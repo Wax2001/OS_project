@@ -1,7 +1,12 @@
 import os
+from socket import *
 
-
+# HOST = '127.0.0.1'
+PORT = 8910
+BUF_SIZE = 64
 status = True
+
+
 while status:
 
     connection = False
@@ -9,12 +14,24 @@ while status:
     com_split = command.split()
     com1 = com_split[0]
 
-    if com1 == 'connect':
-        send = 'CONNECT {}'.format(com_split[1])
-        print(send)
+    if com1 == 'connect' and len(com_split) == 3:
+        send = 'CONNECT {}'.format(com_split[2])
+        HOST = com_split[2]
+        print(HOST)
         #connecting to server
-        connection = True
-
+        # with socket(AF_INET, SOCK_STREAM) as s:
+        s = socket(AF_INET, SOCK_STREAM)
+        try:
+            s.connect((HOST, PORT))
+            s.send(f'CONNECT {com_split[1]}'.encode())
+            ans = s.recv(BUF_SIZE).decode()
+            if ans.split()[0] == 'Welcome':
+                connection = True
+            print(ans)
+        except Exception as e:
+            print('IP address is not valid or server is not responding')
+            print(e)
+            continue
     elif com1 == 'quit':
         status = False
 
@@ -27,16 +44,22 @@ while status:
         com_split = command.split()
         com1 = com_split[0]
 
+
         if com1 == 'disconnect':
+            s.send('DISCONNECT'.encode())
             print('Disconnected')
             connection = False
+            s.close()
 
         elif com1 == 'quit':
+            s.send('QUIT'.encode())
             status = False
             connection = False
 
         elif com1 == 'lu':
-            print('LU')
+            # print('LU')
+            s.send('LU'.encode())
+            print(s.recv(BUF_SIZE).decode())
 
         elif com1 == 'send':
             if com_split[1] == 'not_online':
@@ -47,7 +70,8 @@ while status:
             print(send)
 
         elif com1 == 'lf':
-            print('LF')
+            s.send('LF'.encode())
+            print(s.recv(BUF_SIZE).decode())
 
         #maybe create functions to read and write for using them in over- and appendfiles commands
         elif com1 == 'read':
