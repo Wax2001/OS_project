@@ -9,6 +9,8 @@ RECV_PORT = 2022
 BUF_SIZE = 1024
 status = True
 screen_lock = Lock()
+
+
 def sending_thread(socket):
     while True:
         global status
@@ -46,6 +48,11 @@ def sending_thread(socket):
             msg = command[command.find('“') + 1:command.find('”')]
             send_msg = 'MESSAGE {}\n{} {}'.format(com_split[1], len(msg), msg)
             socket.send(send_msg.encode())
+            socket.settimeout(2)
+            try:
+                print(socket.recv(BUF_SIZE).decode())
+            except timeout:
+                print('Message has been sent')
 
         elif com1 == 'lf':
             socket.send('LF'.encode())
@@ -58,7 +65,6 @@ def sending_thread(socket):
                 continue
             send = 'READ {}'.format(com_split[1])
             print(send)
-            # wait for response
 
         elif com1 == 'write':
             if com_split[1] == 'already_exists':
@@ -92,12 +98,9 @@ def receiving_thread():
     with socket(AF_INET, SOCK_STREAM) as rs:
         rs.bind((HOST, RECV_PORT))
         rs.listen()
-        # print('\n', (HOST, RECV_PORT))
-        serv_sock, serv_addr = rs.accept()
 
-        # print('\nconn is on')
         while True:
-            # print('waiting for messages')
+            serv_sock, serv_addr = rs.accept()
             message = serv_sock.recv(BUF_SIZE).decode()
             if message:
                 screen_lock.acquire()
@@ -114,11 +117,7 @@ while status:
     com_split = command.split()
 
     if com_split[0] == 'connect' and len(com_split) == 3:
-        # send = 'CONNECT {}'.format(com_split[2])
         ip = com_split[2]
-        # print(ip)
-        # connecting to server
-        # with socket(AF_INET, SOCK_STREAM) as s:
         s = socket(AF_INET, SOCK_STREAM)
         try:
             s.connect((ip, SEND_PORT))
@@ -141,7 +140,7 @@ while status:
         # rt.start()
         st.join()
         # rt.join()
-
+        s.close()
 
     elif com_split[0] == 'quit':
         status = False
