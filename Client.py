@@ -1,16 +1,18 @@
 import os
+import time
 from socket import *
-from threading import Thread
+from threading import Thread, Lock
 
 HOST = '127.0.0.1'
 SEND_PORT = 2021
 RECV_PORT = 2022
 BUF_SIZE = 1024
 status = True
-
+screen_lock = Lock()
 def sending_thread(socket):
     while True:
         global status
+        screen_lock.acquire()
         command = input("Enter a command: ")
         com_split = command.split()
         com1 = com_split[0]
@@ -18,14 +20,14 @@ def sending_thread(socket):
         if com1 == 'disconnect':
             socket.send('DISCONNECT'.encode())
             if socket.recv(BUF_SIZE).decode() == 'OK':
-                print('Disconnected')
+                print('Disconnecting')
                 socket.close()
                 break
             else:
                 print('Disconnection error')
 
         elif com1 == 'quit':
-            socket.send('QUIT'.encode())
+            socket.send('DISCONNECT'.encode())
             if socket.recv(BUF_SIZE).decode() == 'OK':
                 print('Quitting')
                 socket.close()
@@ -82,22 +84,28 @@ def sending_thread(socket):
 
         else:
             print("Error: Command is wrong or non_existent")
+        screen_lock.release()
+        time.sleep(1)
 
 
 def receiving_thread():
     with socket(AF_INET, SOCK_STREAM) as rs:
         rs.bind((HOST, RECV_PORT))
         rs.listen()
-        print('\n', (HOST, RECV_PORT))
+        # print('\n', (HOST, RECV_PORT))
         serv_sock, serv_addr = rs.accept()
 
-        print('\nconn is on')
+        # print('\nconn is on')
         while True:
-            print('waiting for messages')
+            # print('waiting for messages')
             message = serv_sock.recv(BUF_SIZE).decode()
             if message:
+                screen_lock.acquire()
                 print(message)
+                screen_lock.release()
+                time.sleep(1)
             else:
+                screen_lock.release()
                 break
 
 
@@ -108,7 +116,7 @@ while status:
     if com_split[0] == 'connect' and len(com_split) == 3:
         # send = 'CONNECT {}'.format(com_split[2])
         ip = com_split[2]
-        print(ip)
+        # print(ip)
         # connecting to server
         # with socket(AF_INET, SOCK_STREAM) as s:
         s = socket(AF_INET, SOCK_STREAM)
@@ -116,7 +124,11 @@ while status:
             s.connect((ip, SEND_PORT))
             s.send(f'CONNECT {com_split[1]}'.encode())
             ans = s.recv(BUF_SIZE).decode()
-            print(ans)
+            if ans == 'ERROR':
+                print('Server denied connection. Try again')
+                continue
+            elif ans == 'OK':
+                print("Successful connection")
         except Exception as e:
             print('IP address is not valid or server is not responding')
             print(e)
@@ -127,10 +139,8 @@ while status:
         # rt = Thread(target=receiving_thread)
         st.start()
         # rt.start()
-        print('here1')
         st.join()
         # rt.join()
-        print('here2')
 
 
     elif com_split[0] == 'quit':

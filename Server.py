@@ -6,16 +6,17 @@ HOST = '127.0.0.1'
 PORT = 2021
 RECV_PORT = 2022
 BUF_SIZE = 1024
-con_recv = True
+conn_recv = True
 
 s = socket(AF_INET, SOCK_STREAM)
 s.bind((HOST, PORT))
 s.listen()
 while True:
-    print('wait')
+    print('Waiting for new connection')
     clientsocket, address = s.accept()
-    print(clientsocket)
-    name_check = clientsocket.recv(BUF_SIZE).decode().split()[1]
+    # print(clientsocket)
+    name_check = clientsocket.recv(BUF_SIZE).decode()
+    print('User {} connected to the server'.format(name_check.split()[1]))
     # if name_check:
     #     print(name_check, '/', address[0], '/', type(address[0]))
     # else:
@@ -46,13 +47,13 @@ while True:
                 clientsocket.send('OK'.encode())
                 clientsocket.close()
                 recv_sock.close()
-                con_recv = True
+                conn_recv = True
                 break
             elif com1 == 'MESSAGE':
                 print('Sending massage to {}'.format(command.split()[1]))
-                if con_recv:
+                if conn_recv:
                     recv_sock.connect((address[0], RECV_PORT))
-                    con_recv = False
+                    conn_recv = False
                 msg = command.replace(command.split()[1], '')
                 # print('connected to client receiver')
                 recv_sock.send(msg.encode())
