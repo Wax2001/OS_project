@@ -14,8 +14,8 @@ def thread_for_client(conn, username):
     global users_dict
     recv_mode = ['WRITE', 'OVERWRITE', 'APPEND', 'APPENDFILE']
     connection = True
-    recv_sock = socket(AF_INET, SOCK_STREAM)
     while connection:
+        recv_sock = socket(AF_INET, SOCK_STREAM)
         command = conn.recv(BUF_SIZE).decode()
         if command:
             com0 = command.split()[0]
@@ -58,7 +58,8 @@ def thread_for_client(conn, username):
                         recv_sock.connect((users_dict[com1], RECV_PORT))
                     except Exception as e:
                         print('Couldnt deliver message: ', e)
-                        conn.send('Connection to receiving thread failed'.encode())
+                        conn.send('ERROR: Connection to receiving thread failed'.encode())
+                        recv_sock.close()
                         continue
                     msg = command.replace(com1, '')
                     recv_sock.send(msg.encode())
@@ -102,19 +103,16 @@ def thread_for_client(conn, username):
                         size -= len(data)
                         while size > 0:
                             data = conn.recv(BUF_SIZE).decode()
-                            # print('data = {}\n'.format(data))
-                            # write data to a file
                             file.write(data)
                             size -= BUF_SIZE
                     print('File received with size of ', path.getsize(filepath))
                     file.close()
 
-
             else:
                 conn.send("Comm not added".encode())
+            recv_sock.close()
         else:
             connection = False
-
 
 s = socket(AF_INET, SOCK_STREAM)
 s.bind((HOST, PORT))

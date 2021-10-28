@@ -5,7 +5,7 @@ from threading import Thread, Lock
 
 HOST = '127.0.0.1'
 SEND_PORT = 2021
-RECV_PORT = 2022
+RECV_PORT = 2023
 BUF_SIZE = 1024
 status = True
 screen_lock = Lock()
@@ -13,7 +13,7 @@ screen_lock = Lock()
 
 def sending_thread(socket):
     connection = True
-    send_mode = ['write', 'overwrite', 'appendfile']
+    write_mode = ['write', 'overwrite', 'appendfile']
     while connection:
         global status
         screen_lock.acquire()
@@ -47,7 +47,7 @@ def sending_thread(socket):
 
         elif com1 == 'send' and len(com_split) > 2:
             msg = command[command.find('“') + 1:command.find('”')]
-            send_msg = 'MESSAGE {}\n{} {}'.format(com_split[1], len(msg), msg)
+            send_msg = 'MESSAGE {}\n{} {}'.format(com_split[1], str(len(msg)), msg)
             socket.send(send_msg.encode())
             socket.settimeout(2)
             try:
@@ -59,7 +59,6 @@ def sending_thread(socket):
             socket.send('LF'.encode())
             print(socket.recv(BUF_SIZE).decode())
 
-        # maybe create functions to read and write for using them in over- and append server_files commands
         elif com1[-4:] == 'read':
             if com_split[1] not in os.listdir('client_files/') or com1 == "overread":
                 socket.send('READ {}'.format(com_split[1]).encode())
@@ -82,7 +81,7 @@ def sending_thread(socket):
             else:
                 print('ERROR: You already have that file.')
 
-        elif com1 in send_mode:
+        elif com1 in write_mode:
             filepath = 'client_files/' + com_split[1]
             if com_split[1] not in os.listdir('client_files/'):
                 print('ERROR: You dont have such file.')
@@ -128,19 +127,27 @@ def receiving_thread():
     while True:
         serv_sock, serv_addr = rs.accept()
         message = serv_sock.recv(BUF_SIZE).decode()
+
         if message == "DISCONNECT":
+            print('| dis rt |')
             rs.close()
             break
 
         elif message:
+            size = int(message.split()[1])
+            full_msg = message[message.find(' ', 10) + 1:]
+            size -= len(message)
+            while size > 0:
+                message = serv_sock.recv(BUF_SIZE).decode()
+                full_msg += message
+                size -= BUF_SIZE
             screen_lock.acquire()
-            print(message)
+            print('MESSAGE\n', full_msg)
             screen_lock.release()
             time.sleep(1)
 
         else:
             break
-
 
 while status:
     command = input("Enter a command: ")
