@@ -12,7 +12,9 @@ screen_lock = Lock()
 
 
 def sending_thread(socket):
-    while True:
+    connection = True
+    send_mode = ['write', 'overwrite', 'appendfile']
+    while connection:
         global status
         screen_lock.acquire()
         command = input("Enter a command: ")
@@ -24,7 +26,7 @@ def sending_thread(socket):
             if socket.recv(BUF_SIZE).decode() == 'OK':
                 print('Disconnecting')
                 socket.close()
-                break
+                connection = False
             else:
                 print('Disconnection error')
 
@@ -34,7 +36,7 @@ def sending_thread(socket):
                 print('Quitting')
                 socket.close()
                 status = False
-                break
+                connection = False
             else:
                 print('Quit error')
 
@@ -44,7 +46,6 @@ def sending_thread(socket):
             print(socket.recv(BUF_SIZE).decode())
 
         elif com1 == 'send' and len(com_split) > 2:
-
             msg = command[command.find('“') + 1:command.find('”')]
             send_msg = 'MESSAGE {}\n{} {}'.format(com_split[1], len(msg), msg)
             socket.send(send_msg.encode())
@@ -59,34 +60,59 @@ def sending_thread(socket):
             print(socket.recv(BUF_SIZE).decode())
 
         # maybe create functions to read and write for using them in over- and append server_files commands
-        elif com1 == 'read':
-            if com_split[1] == 'already_exists':
-                print('Error: Client already contains that file')
-                continue
-            send = 'READ {}'.format(com_split[1])
-            print(send)
+        elif com1[-4:] == 'read':
+            if com_split[1] not in os.listdir('client_files/') or com1 == "overread":
+                socket.send('READ {}'.format(com_split[1]).encode())
+                if socket.recv(BUF_SIZE).decode() == 'OK':
+                    with open('client_files/' + com_split[1], 'w') as file:
+                        print('Receiving file')
+                        data = socket.recv(BUF_SIZE).decode()
+                        size = int(data.split()[0])
+                        data = data[data.find(' ') + 1:]
+                        file.write(data)
+                        size -= len(data)
+                        while size > 0:
+                            data = socket.recv(BUF_SIZE).decode()
+                            # print('data = {}\n'.format(data))
+                            # write data to a file
+                            file.write(data)
+                            size -= BUF_SIZE
+                    print('File received with size of ', os.path.getsize('client_files/' + com_split[1]))
+                    file.close()
+            else:
+                print('ERROR: You already have that file.')
 
-        elif com1 == 'write':
-            if com_split[1] == 'already_exists':
-                print('Error: Server already contains that file')
+        elif com1 in send_mode:
+            filepath = 'client_files/' + com_split[1]
+            if com_split[1] not in os.listdir('client_files/'):
+                print('ERROR: You dont have such file.')
                 continue
-            send = 'WRITE {}'.format(com_split[1])
-            print(send)
-            # wait for response
-            # file_size = os.path.getsize('path')
-            # send2 = '{} {}'.format(file_size, file_cont)
-            print('23456 filecontent')
+            if com1 == 'appendfile':
+                socket.send('{} {} {}'.format(com1.upper(), com_split[1], com_split[2]).encode())
+            else:
+                socket.send('{} {}'.format(com1.upper(), com_split[1]).encode())
+            if socket.recv(BUF_SIZE).decode() == 'OK':
+                print('Sending {} to server'.format(com1))
+                file = open(filepath, 'r')
+                size = str(os.path.getsize(filepath))
+                part = size + ' ' + file.read(BUF_SIZE - len(size) - 1)
+                while part:
+                    socket.send(part.encode())
+                    # print('Sent ', repr(part))
+                    part = file.read(BUF_SIZE)
+                file.close()
+                print('Everything sent')
+            else:
+                print('ERROR: This file already exists on server.')
 
         elif com1 == 'append':
-            if com_split[-1] == 'not_here':
-                print('Error: Server does not contain that file')
-                continue
-            send = 'APPEND {}'.format(com_split[-1])
-            print(send)
-            # wait for response
-            add_data = command[command.find('“') + 1:command.find('”')]
-            # file_size = os.path.getsize('path')
-            print('{} {}'.format(len(add_data), add_data))
+            socket.send('{} {}'.format(com1.upper(), com_split[-1]).encode())
+            if socket.recv(BUF_SIZE).decode() == 'OK':
+                content = command[command.find('“') + 1:command.find('”')]
+                socket.send((str(len(content)) + ' ' + content).encode())
+                print('Everything sent')
+            else:
+                print('ERROR: This file already exists on server.')
 
         else:
             print("Error: Command is wrong or non_existent")
@@ -95,21 +121,25 @@ def sending_thread(socket):
 
 
 def receiving_thread():
-    with socket(AF_INET, SOCK_STREAM) as rs:
-        rs.bind((HOST, RECV_PORT))
-        rs.listen()
+    rs = socket(AF_INET, SOCK_STREAM)
+    rs.bind((HOST, RECV_PORT))
+    rs.listen()
 
-        while True:
-            serv_sock, serv_addr = rs.accept()
-            message = serv_sock.recv(BUF_SIZE).decode()
-            if message:
-                screen_lock.acquire()
-                print(message)
-                screen_lock.release()
-                time.sleep(1)
-            else:
-                screen_lock.release()
-                break
+    while True:
+        serv_sock, serv_addr = rs.accept()
+        message = serv_sock.recv(BUF_SIZE).decode()
+        if message == "DISCONNECT":
+            rs.close()
+            break
+
+        elif message:
+            screen_lock.acquire()
+            print(message)
+            screen_lock.release()
+            time.sleep(1)
+
+        else:
+            break
 
 
 while status:
@@ -133,13 +163,16 @@ while status:
             print(e)
             continue
 
-        Thread(target=receiving_thread, daemon=True).start()
         st = Thread(target=sending_thread, args=(s,))
-        # rt = Thread(target=receiving_thread)
+        # Thread(target=receiving_thread, daemon=True).start()
+        rt = Thread(target=receiving_thread)
+
         st.start()
-        # rt.start()
+        rt.start()
+
         st.join()
-        # rt.join()
+        rt.join()
+
         s.close()
 
     elif com_split[0] == 'quit':

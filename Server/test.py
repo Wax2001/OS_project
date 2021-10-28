@@ -12,6 +12,7 @@ users_dict = {}
 
 def thread_for_client(conn, username):
     global users_dict
+    recv_mode = ['WRITE', 'OVERWRITE', 'APPEND', 'APPENDFILE']
     connection = True
     recv_sock = socket(AF_INET, SOCK_STREAM)
     while connection:
@@ -82,11 +83,17 @@ def thread_for_client(conn, username):
                 else:
                     conn.send("ERROR".encode())
 
-            elif com0[-5:] == 'WRITE':
-                filepath = 'server_files/' + com1
-                if not path.exists(filepath) or com0 == 'OVERWRITE':
+            elif com0 in recv_mode:
+                filepath = 'server_files/' + command.split()[-1]
+                if (path.exists(filepath) and com0 == 'WRITE') or (not path.exists(filepath) and com0[:6] == 'APPEND'):
+                    conn.send('ERROR'.encode())
+                else:
                     conn.send('OK'.encode())
-                    with open(filepath, 'w') as file:
+                    meth = 'w'
+                    if com0[:6] == 'APPEND':
+                        meth = 'a'
+                    print(meth)
+                    with open(filepath, meth) as file:
                         print('Receiving file from ', username)
                         data = conn.recv(BUF_SIZE).decode()
                         size = int(data.split()[0])
@@ -101,8 +108,7 @@ def thread_for_client(conn, username):
                             size -= BUF_SIZE
                     print('File received with size of ', path.getsize(filepath))
                     file.close()
-                else:
-                    conn.send('ERROR'.encode())
+
 
             else:
                 conn.send("Comm not added".encode())

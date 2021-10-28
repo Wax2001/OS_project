@@ -13,6 +13,7 @@ screen_lock = Lock()
 
 def sending_thread(socket):
     connection = True
+    send_mode = ['write', 'overwrite', 'appendfile']
     while connection:
         global status
         screen_lock.acquire()
@@ -67,7 +68,7 @@ def sending_thread(socket):
                         print('Receiving file')
                         data = socket.recv(BUF_SIZE).decode()
                         size = int(data.split()[0])
-                        data = data[data.find(' ')+1:]
+                        data = data[data.find(' ') + 1:]
                         file.write(data)
                         size -= len(data)
                         while size > 0:
@@ -81,12 +82,15 @@ def sending_thread(socket):
             else:
                 print('ERROR: You already have that file.')
 
-        elif com1[-5:] == 'write':
+        elif com1 in send_mode:
             filepath = 'client_files/' + com_split[1]
             if com_split[1] not in os.listdir('client_files/'):
                 print('ERROR: You dont have such file.')
                 continue
-            socket.send('{} {}'.format(com1.upper(), com_split[1]).encode())
+            if com1 == 'appendfile':
+                socket.send('{} {} {}'.format(com1.upper(), com_split[1], com_split[2]).encode())
+            else:
+                socket.send('{} {}'.format(com1.upper(), com_split[1]).encode())
             if socket.recv(BUF_SIZE).decode() == 'OK':
                 print('Sending {} to server'.format(com1))
                 file = open(filepath, 'r')
@@ -102,15 +106,13 @@ def sending_thread(socket):
                 print('ERROR: This file already exists on server.')
 
         elif com1 == 'append':
-            if com_split[-1] == 'not_here':
-                print('Error: Server does not contain that file')
-                continue
-            send = 'APPEND {}'.format(com_split[-1])
-            print(send)
-            # wait for response
-            add_data = command[command.find('“') + 1:command.find('”')]
-            # file_size = os.path.getsize('path')
-            print('{} {}'.format(len(add_data), add_data))
+            socket.send('{} {}'.format(com1.upper(), com_split[-1]).encode())
+            if socket.recv(BUF_SIZE).decode() == 'OK':
+                content = command[command.find('“') + 1:command.find('”')]
+                socket.send((str(len(content)) + ' ' + content).encode())
+                print('Everything sent')
+            else:
+                print('ERROR: This file already exists on server.')
 
         else:
             print("Error: Command is wrong or non_existent")
