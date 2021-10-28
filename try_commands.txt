@@ -1,6 +1,6 @@
 connect s localhost
 lu
 lf
-send hg “hi man, how are you”
+send shakh “hi man, how are you”
 quit
 disconnect

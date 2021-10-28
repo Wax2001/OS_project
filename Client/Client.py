@@ -58,7 +58,7 @@ def sending_thread(socket):
             socket.send('LF'.encode())
             print(socket.recv(BUF_SIZE).decode())
 
-        # maybe create functions to read and write for using them in over- and append files commands
+        # maybe create functions to read and write for using them in over- and append server_files commands
         elif com1 == 'read':
             if com_split[1] == 'already_exists':
                 print('Error: Client already contains that file')
