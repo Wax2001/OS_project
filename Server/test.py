@@ -8,10 +8,10 @@ PORT = 2021
 RECV_PORT = 2022
 BUF_SIZE = 1024
 users_dict = {}
-
+file_using = []
 
 def thread_for_client(conn, username):
-    global users_dict
+    global users_dict, file_using
     recv_mode = ['WRITE', 'OVERWRITE', 'APPEND', 'APPENDFILE']
     connection = True
     recv_sock = socket(AF_INET, SOCK_STREAM)
@@ -41,36 +41,43 @@ def thread_for_client(conn, username):
             elif com0 == 'DISCONNECT':
                 try:
                     recv_sock.connect((users_dict[username], RECV_PORT))
-                    recv_sock.send("DISCONNECT".encode())
+                    recv_sock.send("DISCONNECT\n".encode())
                     recv_sock.close()
                     users_dict.pop(username)
-                    conn.send('OK'.encode())
+                    conn.send('OK\n'.encode())
                     conn.close()
                     print('{} is disconnected'.format(username))
                     break
                 except Exception as e:
                     print('Couldnt disconnect {}. {}'.format(username, e))
-                    conn.send('ERROR'.encode())
+                    conn.send('ERROR\n'.encode())
 
             elif com0 == 'MESSAGE':
                 if com1 in users_dict.keys():
                     try:
                         recv_sock.connect((users_dict[com1], RECV_PORT))
                     except Exception as e:
-                        print('Couldnt deliver message: ', e)
-                        conn.send('Connection to receiving thread failed'.encode())
+                        print('Couldnt deliver {}s message: {}'.format(username, e))
+                        conn.send('ERROR: Couldnt connect to this user\n'.encode())
                         continue
                     msg = command.replace(com1, '')
                     recv_sock.send(msg.encode())
                     print('{} sent {} a message'.format(username, com1))
+                    recv_sock.close()
                 else:
-                    conn.send("{} is not online".format(command.split()[1]).encode())
+                    conn.send("ERROR: {} is not online\n".format(command.split()[1]).encode())
 
             elif com0 == 'READ':
                 filepath = 'server_files/' + com1
                 if path.exists(filepath):
+                    if filepath not in file_using:
+                        file_using.append(filepath)
+                    else:
+                        conn.send("ERROR: This file is being used by someone else\n".encode())
+                        continue
+
                     print('Sending {} to {}'.format(com1, username))
-                    conn.send("OK".encode())
+                    conn.send("OK\n".encode())
                     file = open(filepath, 'r')
                     size = str(path.getsize(filepath))
                     part = size + ' ' + file.read(BUF_SIZE - len(size) - 1)
@@ -79,16 +86,24 @@ def thread_for_client(conn, username):
                         # print('Sent ', repr(part))
                         part = file.read(BUF_SIZE)
                     file.close()
+                    file_using.remove(filepath)
                     print('Everything sent')
                 else:
-                    conn.send("ERROR".encode())
+                    conn.send("ERROR: No such file\n".encode())
 
             elif com0 in recv_mode:
                 filepath = 'server_files/' + command.split()[-1]
-                if (path.exists(filepath) and com0 == 'WRITE') or (not path.exists(filepath) and com0[:6] == 'APPEND'):
-                    conn.send('ERROR'.encode())
+                if (path.exists(filepath) and com0 == 'WRITE'):
+                    conn.send('ERROR: File already exists.\n'.encode())
+                elif (not path.exists(filepath) and com0[:6] == 'APPEND'):
+                    conn.send('ERROR: No such file.\n'.encode())
                 else:
-                    conn.send('OK'.encode())
+                    if filepath not in file_using:
+                        file_using.append(filepath)
+                    else:
+                        conn.send("ERROR: This file is being used by someone else.\n".encode())
+                        continue
+                    conn.send('OK\n'.encode())
                     meth = 'w'
                     if com0[:6] == 'APPEND':
                         meth = 'a'
@@ -108,31 +123,38 @@ def thread_for_client(conn, username):
                             size -= BUF_SIZE
                     print('File received with size of ', path.getsize(filepath))
                     file.close()
+                    file_using.remove(filepath)
 
 
             else:
-                conn.send("Comm not added".encode())
+                conn.send("ERROR: No such command\n".encode())
         else:
             connection = False
 
-
-s = socket(AF_INET, SOCK_STREAM)
-s.bind((HOST, PORT))
-s.listen()
-while True:
-    print('Waiting for new connection')
-    client_socket, client_address = s.accept()
-    # print(clientsocket)
-    name_check = client_socket.recv(BUF_SIZE).decode()
-    username = name_check.split()[1]
-    if username in users_dict:
-        client_socket.send('ERROR'.encode())
-        continue
-    else:
-        users_dict[username] = client_address[0]
-        client_socket.send('OK'.encode())
-        print('User {} connected to the server'.format(username))
-    client_thread = Thread(target=thread_for_client, args=(client_socket, username), daemon=True)
-    client_thread.start()
-
-s.close()
+try:
+    s = socket(AF_INET, SOCK_STREAM)
+    s.bind((HOST, PORT))
+    s.listen()
+    while True:
+        print('Waiting for new connection')
+        client_socket, client_address = s.accept()
+        # print(clientsocket)
+        name_check = client_socket.recv(BUF_SIZE).decode()
+        username = name_check.split()[1]
+        if username in users_dict:
+            client_socket.send('ERROR\n'.encode())
+            continue
+        else:
+            users_dict[username] = client_address[0]
+            client_socket.send('OK\n'.encode())
+            print('User {} connected to the server'.format(username))
+        client_thread = Thread(target=thread_for_client, args=(client_socket, username), daemon=True)
+        client_thread.start()
+except KeyboardInterrupt:
+    for us in users_dict:
+        recv_sock = socket(AF_INET, SOCK_STREAM)
+        recv_sock.connect((users_dict[us], RECV_PORT))
+        recv_sock.send("DISCONNECT\n".encode())
+        recv_sock.close()
+    print('Server closed')
+    s.close()
