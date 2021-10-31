@@ -91,16 +91,13 @@ def thread_for_client(conn, username):
                         conn.send("ERROR\n".encode('ascii'))
                         continue
 
-                    print('Sending {} to {}'.format(com1, username))
                     conn.send("OK\n".encode('ascii'))
-                    file = open(filepath, 'r')
+                    print('Sending {} to {}'.format(com1, username))
                     size = str(path.getsize(filepath))
-                    part = size + ' ' + file.read(BUF_SIZE - len(size) - 1)
-                    while part:
-                        conn.send(part.encode())
-                        # print('Sent ', repr(part))
-                        part = file.read(BUF_SIZE)
-                    file.close()
+                    conn.send('{} '.format(size).encode('ascii'))
+                    with open(filepath, 'rb') as file:
+                        data = file.read()
+                        conn.sendall(data)
                     file_using.remove(filepath)
                     print('Everything sent')
                 else:
@@ -119,25 +116,34 @@ def thread_for_client(conn, username):
                         conn.send("ERROR\n".encode('ascii'))
                         continue
                     conn.send('OK\n'.encode('ascii'))
-                    meth = 'w'
-                    if com0[:6] == 'APPEND':
-                        meth = 'a'
+                    meth = 'wb'
                     print(meth)
+                    size = ''
+                    c = conn.recv(1).decode('ascii')
+                    while ' ' != c:
+                        size += c
+                        c = conn.recv(1).decode('ascii')
+                    size = int(size)
+                    if com0[:6] == 'APPEND':
+                        meth = 'ab'
+                        init_size = path.getsize(filepath)
+                    if com0[:7] == 'APPEND ':
+                        to_write = conn.recv(size).decode('ascii')
+                        meth = 'a'
+                    else:
+                        to_write = conn.recv(size)
                     with open(filepath, meth) as file:
                         print('Receiving file from ', username)
-                        data = conn.recv(BUF_SIZE).decode()
-                        size = int(data.split()[0])
-                        data = data[data.find(' ')+1:]
-                        file.write(data)
-                        size -= len(data)
-                        while size > 0:
-                            data = conn.recv(BUF_SIZE).decode()
-                            # print('data = {}\n'.format(data))
-                            # write data to a file
-                            file.write(data)
-                            size -= BUF_SIZE
+                        file.write(to_write)
+                    if com0[:6] == 'APPEND':
+                        size += init_size
+
                     print('File received with size of ', path.getsize(filepath))
-                    file.close()
+                    if path.getsize(filepath) == size:
+                        conn.send('OK\n'.encode('ascii'))
+                    else:
+                        conn.send('ERROR\n'.encode('ascii'))
+
                     file_using.remove(filepath)
 
 

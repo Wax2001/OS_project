@@ -68,21 +68,16 @@ def sending_thread(socket):
                 socket.send('READ {}\n'.format(com_split[1]).encode('ascii'))
                 r = socket.recv(BUF_SIZE).decode('ascii')
                 if r[:2] == 'OK':
-                    with open('client_files/' + com_split[1], 'w') as file:
-                        print('Receiving file')
-                        data = socket.recv(BUF_SIZE).decode()
-                        size = int(data.split()[0])
-                        data = data[data.find(' ') + 1:]
-                        file.write(data)
-                        size -= len(data)
-                        while size > 0:
-                            data = socket.recv(BUF_SIZE).decode()
-                            # print('data = {}\n'.format(data))
-                            # write data to a file
-                            file.write(data)
-                            size -= BUF_SIZE
+                    size = ''
+                    c = socket.recv(1).decode('ascii')
+                    while ' ' != c:
+                        size += c
+                        c = socket.recv(1).decode('ascii')
+                    size = int(size)
+                    to_read = socket.recv(size)
+                    with open('client_files/' + com_split[1], 'wb') as file:
+                        file.write(to_read)
                     print('File received with size of ', os.path.getsize('client_files/' + com_split[1]))
-                    file.close()
                 else:
                     print(r)
             else:
@@ -100,15 +95,13 @@ def sending_thread(socket):
             r = socket.recv(BUF_SIZE).decode('ascii')
             if r[:2] == 'OK':
                 print('Sending {} to server'.format(com1))
-                file = open(filepath, 'r')
                 size = str(os.path.getsize(filepath))
-                part = size + ' ' + file.read(BUF_SIZE - len(size) - 1)
-                while part:
-                    socket.send(part.encode())
-                    # print('Sent ', repr(part))
-                    part = file.read(BUF_SIZE)
-                file.close()
+                socket.send('{} '.format(size).encode('ascii'))
+                with open(filepath, 'rb') as file:
+                    data = file.read()
+                    socket.sendall(data)
                 print('Everything sent')
+                print(socket.recv(BUF_SIZE).decode('ascii'))
             else:
                 print(r)
 
@@ -117,8 +110,9 @@ def sending_thread(socket):
             r = socket.recv(BUF_SIZE).decode('ascii')
             if r[:2] == 'OK':
                 content = command[command.find('“') + 1:command.find('”')]
-                socket.send((str(len(content)) + ' ' + content).encode())
+                socket.send((str(len(content)) + ' ' + content).encode('ascii'))
                 print('Everything sent')
+                print(socket.recv(BUF_SIZE).decode('ascii'))
             else:
                 print(r)
 
@@ -191,7 +185,7 @@ while status:
             print(e)
             continue
 
-        connection = True
+        # connection = True
         st = Thread(target=sending_thread, args=(s,))
         # Thread(target=receiving_thread, daemon=True).start()
 
