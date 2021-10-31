@@ -20,7 +20,6 @@ def sending_thread(socket):
         command = input("Enter a command: ")
         if not connection:
             screen_lock.release()
-            print('here')
             break
         com_split = command.split()
         com1 = com_split[0]
@@ -134,13 +133,12 @@ def receiving_thread():
             message = serv_sock.recv(BUF_SIZE).decode('ascii')
 
             if message == "DISCONNECT\n":
-                print('here1')
                 connection = False
                 screen_lock.acquire()
                 print('You were disconnected')
                 screen_lock.release()
                 rs.close()
-                # break
+                break
 
             elif message:
                 size = int(message.split()[1])
@@ -153,7 +151,6 @@ def receiving_thread():
                 screen_lock.acquire()
                 print('MESSAGE\n', full_msg)
                 screen_lock.release()
-                # print("Enter a command: ")
                 time.sleep(0.1)
 
             else:
@@ -161,8 +158,6 @@ def receiving_thread():
         except:
             break
 
-rt = Thread(target=receiving_thread)
-rt.start()
 
 while status:
     command = input("Enter a command: ")
@@ -171,6 +166,8 @@ while status:
     if com_split[0] == 'connect' and len(com_split) == 3:
         ip = com_split[2]
         s = socket(AF_INET, SOCK_STREAM)
+        rt = Thread(target=receiving_thread)
+        rt.start()
         try:
             s.connect((ip, SEND_PORT))
             s.send(f'CONNECT {com_split[1]}\n'.encode('ascii'))

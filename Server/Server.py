@@ -1,3 +1,4 @@
+import time
 from socket import *
 from os import path, listdir
 from threading import Thread
@@ -11,15 +12,18 @@ users_dict = {}
 file_using = []
 users_using = []
 messages = {}
+closed = False
 
 def thread_for_client(conn, username):
-    global users_dict, file_using, messages
+    global users_dict, file_using, messages, closed
     recv_mode = ['WRITE', 'OVERWRITE', 'APPEND', 'APPENDFILE']
     connection = True
     recv_sock = socket(AF_INET, SOCK_STREAM)
     recv_sock.connect((users_dict[username], RECV_PORT))
 
     while connection:
+        if closed:
+            recv_sock.send('DISCONNECT\n'.encode('ascii'))
         for i in messages[username]:
             print(i)
             recv_sock.send(i.encode('ascii'))
@@ -66,19 +70,9 @@ def thread_for_client(conn, username):
 
             elif com0 == 'MESSAGE':
                 if com1 in users_dict.keys():
-                    # users_using.append(com1)
-                    # try:
-                    #     recv_sock.connect((users_dict[com1], RECV_PORT))
-                    # except Exception as e:
-                    #     print('Couldnt deliver {}s message: {}'.format(username, e))
-                    #     conn.send('ERROR\n'.encode())
-                    #     continue
                     msg = command.replace(' ' + com1, '')
                     messages[com1].append(msg)
-                    # recv_sock.send(msg.encode())
-                    # users_using.remove(com1)
                     print('{} sent {} a message'.format(username, com1))
-                    # recv_sock.close()
                 else:
                     conn.send("ERROR\n".encode('ascii'))
 
@@ -172,14 +166,18 @@ try:
             print('User {} connected to the server'.format(username))
         client_thread = Thread(target=thread_for_client, args=(client_socket, username), daemon=True)
         client_thread.start()
+# except KeyboardInterrupt:
+#     # recv_sock = socket(AF_INET, SOCK_STREAM)
+#     for us in users_dict:
+#         msg = "DISCONNECT\n"
+#         messages[us].append(msg)
+#         # recv_sock.connect((users_dict[us], RECV_PORT))
+#         # recv_sock.send("DISCONNECT\n".encode())
+#     if not messages.values():
+#         print('Server closed')
+#         # recv_sock.close()
+#         s.close()
 except KeyboardInterrupt:
-    # recv_sock = socket(AF_INET, SOCK_STREAM)
-    for us in users_dict:
-        msg = "DISCONNECT\n"
-        messages[us].append(msg)
-        # recv_sock.connect((users_dict[us], RECV_PORT))
-        # recv_sock.send("DISCONNECT\n".encode())
-    if not messages.values():
-        print('Server closed')
-        # recv_sock.close()
-        s.close()
+    closed = True
+    time.sleep(1)
+    s.close()
