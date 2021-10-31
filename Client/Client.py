@@ -20,13 +20,14 @@ def sending_thread(socket):
         command = input("Enter a command: ")
         if not connection:
             screen_lock.release()
+            print('here')
             break
         com_split = command.split()
         com1 = com_split[0]
 
         if com1 == 'disconnect':
-            socket.send('DISCONNECT\n'.encode())
-            if socket.recv(BUF_SIZE).decode()[:2] == 'OK':
+            socket.send('DISCONNECT\n'.encode('ascii'))
+            if socket.recv(BUF_SIZE).decode('ascii')[:2] == 'OK':
                 print('Disconnecting')
                 socket.close()
                 # connection = False
@@ -34,8 +35,8 @@ def sending_thread(socket):
                 print('Disconnection error')
 
         elif com1 == 'quit':
-            socket.send('DISCONNECT\n'.encode())
-            if socket.recv(BUF_SIZE).decode()[:2] == 'OK':
+            socket.send('DISCONNECT\n'.encode('ascii'))
+            if socket.recv(BUF_SIZE).decode('ascii')[:2] == 'OK':
                 print('Quitting')
                 socket.close()
                 status = False
@@ -45,27 +46,27 @@ def sending_thread(socket):
 
         elif com1 == 'lu':
             # print('LU')
-            socket.send('LU\n'.encode())
-            print(socket.recv(BUF_SIZE).decode())
+            socket.send('LU\n'.encode('ascii'))
+            print(socket.recv(BUF_SIZE).decode('ascii'))
 
         elif com1 == 'send' and len(com_split) > 2:
             msg = command[command.find('“') + 1:command.find('”')]
             send_msg = 'MESSAGE {}\n{} {}\n'.format(com_split[1], str(len(msg)), msg)
-            socket.send(send_msg.encode())
+            socket.send(send_msg.encode('ascii'))
             socket.settimeout(2)
             try:
-                print(socket.recv(BUF_SIZE).decode())
+                print(socket.recv(BUF_SIZE).decode('ascii'))
             except timeout:
                 print('Message has been sent')
 
         elif com1 == 'lf':
-            socket.send('LF\n'.encode())
-            print(socket.recv(BUF_SIZE).decode())
+            socket.send('LF\n'.encode('ascii'))
+            print(socket.recv(BUF_SIZE).decode('ascii'))
 
         elif com1[-4:] == 'read':
             if com_split[1] not in os.listdir('client_files/') or com1 == "overread":
-                socket.send('READ {}\n'.format(com_split[1]).encode())
-                r = socket.recv(BUF_SIZE).decode()
+                socket.send('READ {}\n'.format(com_split[1]).encode('ascii'))
+                r = socket.recv(BUF_SIZE).decode('ascii')
                 if r[:2] == 'OK':
                     with open('client_files/' + com_split[1], 'w') as file:
                         print('Receiving file')
@@ -93,10 +94,10 @@ def sending_thread(socket):
                 print('ERROR\n')
                 continue
             if com1 == 'appendfile':
-                socket.send('{} {} {}\n'.format(com1.upper(), com_split[1], com_split[2]).encode())
+                socket.send('{} {} {}\n'.format(com1.upper(), com_split[1], com_split[2]).encode('ascii'))
             else:
-                socket.send('{} {}\n'.format(com1.upper(), com_split[1]).encode())
-            r = socket.recv(BUF_SIZE).decode()
+                socket.send('{} {}\n'.format(com1.upper(), com_split[1]).encode('ascii'))
+            r = socket.recv(BUF_SIZE).decode('ascii')
             if r[:2] == 'OK':
                 print('Sending {} to server'.format(com1))
                 file = open(filepath, 'r')
@@ -112,8 +113,8 @@ def sending_thread(socket):
                 print(r)
 
         elif com1 == 'append':
-            socket.send('{} {}\n'.format(com1.upper(), com_split[-1]).encode())
-            r = socket.recv(BUF_SIZE).decode()
+            socket.send('{} {}\n'.format(com1.upper(), com_split[-1]).encode('ascii'))
+            r = socket.recv(BUF_SIZE).decode('ascii')
             if r[:2] == 'OK':
                 content = command[command.find('“') + 1:command.find('”')]
                 socket.send((str(len(content)) + ' ' + content).encode())
@@ -132,13 +133,14 @@ def receiving_thread():
     rs = socket(AF_INET, SOCK_STREAM)
     rs.bind((HOST, RECV_PORT))
     rs.listen()
+    serv_sock, serv_addr = rs.accept()
 
     while True:
         try:
-            serv_sock, serv_addr = rs.accept()
-            message = serv_sock.recv(BUF_SIZE).decode()
+            message = serv_sock.recv(BUF_SIZE).decode('ascii')
 
             if message == "DISCONNECT\n":
+                print('here1')
                 connection = False
                 screen_lock.acquire()
                 print('You were disconnected')
@@ -151,18 +153,22 @@ def receiving_thread():
                 full_msg = message[message.find(' ', 8) + 1:]
                 size -= len(message)
                 while size > 0:
-                    message = serv_sock.recv(BUF_SIZE).decode()
+                    message = serv_sock.recv(BUF_SIZE).decode('ascii')
                     full_msg += message
                     size -= BUF_SIZE
                 screen_lock.acquire()
                 print('MESSAGE\n', full_msg)
                 screen_lock.release()
+                # print("Enter a command: ")
                 time.sleep(0.1)
 
             else:
                 break
         except:
             break
+
+rt = Thread(target=receiving_thread)
+rt.start()
 
 while status:
     command = input("Enter a command: ")
@@ -173,8 +179,8 @@ while status:
         s = socket(AF_INET, SOCK_STREAM)
         try:
             s.connect((ip, SEND_PORT))
-            s.send(f'CONNECT {com_split[1]}\n'.encode())
-            ans = s.recv(BUF_SIZE).decode()
+            s.send(f'CONNECT {com_split[1]}\n'.encode('ascii'))
+            ans = s.recv(BUF_SIZE).decode('ascii')
             if ans[:6] == 'ERROR':
                 print('Server denied connection. Try again')
                 continue
@@ -188,10 +194,8 @@ while status:
         connection = True
         st = Thread(target=sending_thread, args=(s,))
         # Thread(target=receiving_thread, daemon=True).start()
-        rt = Thread(target=receiving_thread)
 
         st.start()
-        rt.start()
 
         st.join()
         rt.join()

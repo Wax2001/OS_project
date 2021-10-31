@@ -5,7 +5,7 @@ from threading import Thread, Lock
 
 HOST = '127.0.0.1'
 SEND_PORT = 2021
-RECV_PORT = 2022
+RECV_PORT = 2023
 BUF_SIZE = 1024
 status = True
 connection = True
@@ -85,12 +85,12 @@ def sending_thread(socket):
                 else:
                     print(r)
             else:
-                print('ERROR: File already exists.')
+                print('ERROR\n')
 
         elif com1 in write_mode:
             filepath = 'client_files/' + com_split[1]
             if com_split[1] not in os.listdir('client_files/'):
-                print('ERROR: You dont have such file.')
+                print('ERROR\n')
                 continue
             if com1 == 'appendfile':
                 socket.send('{} {} {}\n'.format(com1.upper(), com_split[1], com_split[2]).encode())
@@ -122,7 +122,7 @@ def sending_thread(socket):
                 print(r)
 
         else:
-            print("Error: Command is wrong or non_existent")
+            print("Error\n")
         screen_lock.release()
         time.sleep(1)
 
@@ -132,10 +132,10 @@ def receiving_thread():
     rs = socket(AF_INET, SOCK_STREAM)
     rs.bind((HOST, RECV_PORT))
     rs.listen()
+    serv_sock, serv_addr = rs.accept()
 
     while True:
         try:
-            serv_sock, serv_addr = rs.accept()
             message = serv_sock.recv(BUF_SIZE).decode()
 
             if message == "DISCONNECT\n":
@@ -157,12 +157,16 @@ def receiving_thread():
                 screen_lock.acquire()
                 print('MESSAGE\n', full_msg)
                 screen_lock.release()
+                # print("Enter a command: ")
                 time.sleep(0.1)
 
             else:
                 break
         except:
             break
+
+rt = Thread(target=receiving_thread)
+rt.start()
 
 while status:
     command = input("Enter a command: ")
@@ -188,10 +192,8 @@ while status:
         connection = True
         st = Thread(target=sending_thread, args=(s,))
         # Thread(target=receiving_thread, daemon=True).start()
-        rt = Thread(target=receiving_thread)
 
         st.start()
-        rt.start()
 
         st.join()
         rt.join()
