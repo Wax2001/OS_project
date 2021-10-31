@@ -9,6 +9,7 @@ RECV_PORT = 2022
 BUF_SIZE = 1024
 status = True
 connection = True
+con_rec = True
 screen_lock = Lock()
 
 
@@ -128,7 +129,8 @@ def receiving_thread():
     rs.listen()
     serv_sock, serv_addr = rs.accept()
 
-    while True:
+    while con_rec:
+        serv_sock.settimeout(0.1)
         try:
             message = serv_sock.recv(BUF_SIZE).decode('ascii')
 
@@ -155,6 +157,8 @@ def receiving_thread():
 
             else:
                 break
+        except timeout:
+            continue
         except:
             break
 
@@ -182,7 +186,7 @@ while status:
             print(e)
             continue
 
-        # connection = True
+        connection = True
         st = Thread(target=sending_thread, args=(s,))
         # Thread(target=receiving_thread, daemon=True).start()
 
@@ -194,6 +198,8 @@ while status:
         s.close()
 
     elif com_split[0] == 'quit':
+        connection = False
+        con_rec = False
         status = False
 
     else:

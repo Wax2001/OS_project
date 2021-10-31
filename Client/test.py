@@ -9,6 +9,7 @@ RECV_PORT = 2023
 BUF_SIZE = 1024
 status = True
 connection = True
+con_rec = True
 screen_lock = Lock()
 
 
@@ -20,7 +21,6 @@ def sending_thread(socket):
         command = input("Enter a command: ")
         if not connection:
             screen_lock.release()
-            print('here')
             break
         com_split = command.split()
         com1 = com_split[0]
@@ -68,21 +68,16 @@ def sending_thread(socket):
                 socket.send('READ {}\n'.format(com_split[1]).encode('ascii'))
                 r = socket.recv(BUF_SIZE).decode('ascii')
                 if r[:2] == 'OK':
-                    with open('client_files/' + com_split[1], 'w') as file:
-                        print('Receiving file')
-                        data = socket.recv(BUF_SIZE).decode()
-                        size = int(data.split()[0])
-                        data = data[data.find(' ') + 1:]
-                        file.write(data)
-                        size -= len(data)
-                        while size > 0:
-                            data = socket.recv(BUF_SIZE).decode()
-                            # print('data = {}\n'.format(data))
-                            # write data to a file
-                            file.write(data)
-                            size -= BUF_SIZE
+                    size = ''
+                    c = socket.recv(1).decode('ascii')
+                    while ' ' != c:
+                        size += c
+                        c = socket.recv(1).decode('ascii')
+                    size = int(size)
+                    to_read = socket.recv(size)
+                    with open('client_files/' + com_split[1], 'wb') as file:
+                        file.write(to_read)
                     print('File received with size of ', os.path.getsize('client_files/' + com_split[1]))
-                    file.close()
                 else:
                     print(r)
             else:
@@ -100,15 +95,13 @@ def sending_thread(socket):
             r = socket.recv(BUF_SIZE).decode('ascii')
             if r[:2] == 'OK':
                 print('Sending {} to server'.format(com1))
-                file = open(filepath, 'r')
                 size = str(os.path.getsize(filepath))
-                part = size + ' ' + file.read(BUF_SIZE - len(size) - 1)
-                while part:
-                    socket.send(part.encode())
-                    # print('Sent ', repr(part))
-                    part = file.read(BUF_SIZE)
-                file.close()
+                socket.send('{} '.format(size).encode('ascii'))
+                with open(filepath, 'rb') as file:
+                    data = file.read()
+                    socket.sendall(data)
                 print('Everything sent')
+                print(socket.recv(BUF_SIZE).decode('ascii'))
             else:
                 print(r)
 
@@ -117,8 +110,9 @@ def sending_thread(socket):
             r = socket.recv(BUF_SIZE).decode('ascii')
             if r[:2] == 'OK':
                 content = command[command.find('“') + 1:command.find('”')]
-                socket.send((str(len(content)) + ' ' + content).encode())
+                socket.send((str(len(content)) + ' ' + content).encode('ascii'))
                 print('Everything sent')
+                print(socket.recv(BUF_SIZE).decode('ascii'))
             else:
                 print(r)
 
@@ -135,18 +129,18 @@ def receiving_thread():
     rs.listen()
     serv_sock, serv_addr = rs.accept()
 
-    while True:
+    while con_rec:
+        serv_sock.settimeout(0.1)
         try:
             message = serv_sock.recv(BUF_SIZE).decode('ascii')
 
             if message == "DISCONNECT\n":
-                print('here1')
                 connection = False
                 screen_lock.acquire()
                 print('You were disconnected')
                 screen_lock.release()
                 rs.close()
-                # break
+                break
 
             elif message:
                 size = int(message.split()[1])
@@ -159,16 +153,15 @@ def receiving_thread():
                 screen_lock.acquire()
                 print('MESSAGE\n', full_msg)
                 screen_lock.release()
-                # print("Enter a command: ")
                 time.sleep(0.1)
 
             else:
                 break
+        except timeout:
+            continue
         except:
             break
 
-rt = Thread(target=receiving_thread)
-rt.start()
 
 while status:
     command = input("Enter a command: ")
@@ -177,6 +170,8 @@ while status:
     if com_split[0] == 'connect' and len(com_split) == 3:
         ip = com_split[2]
         s = socket(AF_INET, SOCK_STREAM)
+        rt = Thread(target=receiving_thread)
+        rt.start()
         try:
             s.connect((ip, SEND_PORT))
             s.send(f'CONNECT {com_split[1]}\n'.encode('ascii'))
@@ -203,6 +198,8 @@ while status:
         s.close()
 
     elif com_split[0] == 'quit':
+        connection = False
+        con_rec = False
         status = False
 
     else:
