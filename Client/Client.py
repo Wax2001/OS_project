@@ -85,12 +85,12 @@ def sending_thread(socket):
                 else:
                     print(r)
             else:
-                print('ERROR: File already exists.')
+                print('ERROR\n')
 
         elif com1 in write_mode:
             filepath = 'client_files/' + com_split[1]
             if com_split[1] not in os.listdir('client_files/'):
-                print('ERROR: You dont have such file.')
+                print('ERROR\n')
                 continue
             if com1 == 'appendfile':
                 socket.send('{} {} {}\n'.format(com1.upper(), com_split[1], com_split[2]).encode())
@@ -122,7 +122,7 @@ def sending_thread(socket):
                 print(r)
 
         else:
-            print("Error: Command is wrong or non_existent")
+            print("Error\n")
         screen_lock.release()
         time.sleep(1)
 

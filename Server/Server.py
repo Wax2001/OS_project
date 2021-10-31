@@ -58,14 +58,14 @@ def thread_for_client(conn, username):
                         recv_sock.connect((users_dict[com1], RECV_PORT))
                     except Exception as e:
                         print('Couldnt deliver {}s message: {}'.format(username, e))
-                        conn.send('ERROR: Couldnt connect to this user\n'.encode())
+                        conn.send('ERROR\n'.encode())
                         continue
                     msg = command.replace(com1, '')
                     recv_sock.send(msg.encode())
                     print('{} sent {} a message'.format(username, com1))
                     recv_sock.close()
                 else:
-                    conn.send("ERROR: {} is not online\n".format(command.split()[1]).encode())
+                    conn.send("ERROR\n".encode())
 
             elif com0 == 'READ':
                 filepath = 'server_files/' + com1
@@ -73,7 +73,7 @@ def thread_for_client(conn, username):
                     if filepath not in file_using:
                         file_using.append(filepath)
                     else:
-                        conn.send("ERROR: This file is being used by someone else\n".encode())
+                        conn.send("ERROR\n".encode())
                         continue
 
                     print('Sending {} to {}'.format(com1, username))
@@ -89,19 +89,19 @@ def thread_for_client(conn, username):
                     file_using.remove(filepath)
                     print('Everything sent')
                 else:
-                    conn.send("ERROR: No such file\n".encode())
+                    conn.send("ERROR\n".encode())
 
             elif com0 in recv_mode:
                 filepath = 'server_files/' + command.split()[-1]
                 if (path.exists(filepath) and com0 == 'WRITE'):
-                    conn.send('ERROR: File already exists.\n'.encode())
+                    conn.send('ERROR\n'.encode())
                 elif (not path.exists(filepath) and com0[:6] == 'APPEND'):
-                    conn.send('ERROR: No such file.\n'.encode())
+                    conn.send('ERROR\n'.encode())
                 else:
                     if filepath not in file_using:
                         file_using.append(filepath)
                     else:
-                        conn.send("ERROR: This file is being used by someone else.\n".encode())
+                        conn.send("ERROR\n".encode())
                         continue
                     conn.send('OK\n'.encode())
                     meth = 'w'
@@ -127,7 +127,7 @@ def thread_for_client(conn, username):
 
 
             else:
-                conn.send("ERROR: No such command\n".encode())
+                conn.send("ERROR\n".encode())
         else:
             connection = False
 
