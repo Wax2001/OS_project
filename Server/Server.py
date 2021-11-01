@@ -19,8 +19,10 @@ def thread_for_client(conn, username):
     recv_mode = ['WRITE', 'OVERWRITE', 'APPEND', 'APPENDFILE']
     connection = True
     recv_sock = socket(AF_INET, SOCK_STREAM)
-    recv_sock.connect((users_dict[username], RECV_PORT))
-
+    try:
+        recv_sock.connect((users_dict[username], RECV_PORT))
+    except:
+        print('recv not conn')
     while connection:
         if closed:
             recv_sock.send('DISCONNECT\n'.encode('ascii'))
@@ -74,6 +76,7 @@ def thread_for_client(conn, username):
                     msg = command.replace(' ' + com1, '')
                     messages[com1].append(msg)
                     print('{} sent {} a message'.format(username, com1))
+                    conn.send("OK\n".encode('ascii'))
                 else:
                     conn.send("ERROR\n".encode('ascii'))
 

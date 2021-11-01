@@ -3,7 +3,7 @@ lu
 lf
 send shakh “hi man, how are you”
 send shakh “hi boy, how are you”
-send l “hi boy, how are you”
+send sh “hi boy, how are you”
 append “Hi, how are you? Also, there is some text to try transfer files.\nSome lines to check new lines.\nPirates of the Caribbean. Yohoho and a bottle of rum.\nsome new text to check overread.Hi, how are you? Also, there is some text to try transfer files.\nSome lines to check new lines.\nPirates of the Caribbean. Yohoho and a bottle of rum.\nsome new text to check overread.Hi, how are you? Also, there is some text to try transfer files.\nSome lines to check new lines.\nPirates of the Caribbean. Yohoho and a bottle of rum.\nsome new text to check overread.” somefile.txt
 quit
 disconnect

@@ -55,10 +55,14 @@ def sending_thread(socket):
             send_msg = 'MESSAGE {}\n{} {}\n'.format(com_split[1], str(len(msg)), msg)
             socket.send(send_msg.encode('ascii'))
             socket.settimeout(2)
-            try:
-                print(socket.recv(BUF_SIZE).decode('ascii'))
-            except timeout:
+            # try:
+            r = socket.recv(BUF_SIZE).decode('ascii')
+            print(r)
+            if r == 'OK\n':
                 print('Message has been sent')
+
+            # except timeout:
+            #     print('Message has been sent')
 
         elif com1 == 'lf':
             socket.send('LF\n'.encode('ascii'))
