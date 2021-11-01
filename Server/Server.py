@@ -1,10 +1,10 @@
 import time
 from socket import *
 from os import path, listdir
-from threading import Thread
+from threading import Thread, active_count
 
 HOST = '127.0.0.1'
-# HOST = '192.168.31.15'
+# HOST = '192.168.238.241'
 PORT = 2021
 RECV_PORT = 2022
 BUF_SIZE = 1024
@@ -76,7 +76,7 @@ def thread_for_client(conn, username):
                 else:
                     conn.send("ERROR\n".encode('ascii'))
 
-            elif com0 == 'READ':
+            elif com0[-4:] == 'READ':
                 filepath = 'server_files/' + com1
                 if path.exists(filepath):
                     if filepath not in file_using:
@@ -179,5 +179,6 @@ try:
 #         s.close()
 except KeyboardInterrupt:
     closed = True
-    time.sleep(1)
+    while active_count() > 1:
+        time.sleep(1)
     s.close()

@@ -4,6 +4,7 @@ from socket import *
 from threading import Thread, Lock
 
 HOST = '127.0.0.1'
+# HOST = '192.168.238.241'
 SEND_PORT = 2021
 RECV_PORT = 2022
 BUF_SIZE = 1024
@@ -161,6 +162,7 @@ def receiving_thread():
             continue
         except:
             break
+    rs.close()
 
 
 while status:
@@ -177,11 +179,13 @@ while status:
             s.send(f'CONNECT {com_split[1]}\n'.encode('ascii'))
             ans = s.recv(BUF_SIZE).decode('ascii')
             if ans[:6] == 'ERROR':
+                con_rec = False
                 print('Server denied connection. Try again')
                 continue
             elif ans[:2] == 'OK':
                 print("Successful connection")
         except Exception as e:
+            con_rec = False
             print('IP address is not valid or server is not responding')
             print(e)
             continue
