@@ -24,6 +24,7 @@ def thread_for_client(conn, username):
     while connection:
         if closed:
             recv_sock.send('DISCONNECT\n'.encode('ascii'))
+            connection = False
         for i in messages[username]:
             print(i)
             recv_sock.send(i.encode('ascii'))
